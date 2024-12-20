@@ -1,5 +1,5 @@
 <html>
 <body>
-<h2 style="color: green">Welcome to ganesh</h2>
+<h2 style="color: green">Welcome to Maha Lakshmi</h2>
 </body>
 </html>
