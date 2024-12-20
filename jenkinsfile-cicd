@@ -1,31 +1,56 @@
-node{
-    
-    
-    stage('clone repo'){
-        git branch: 'main', credentialsId: '918f2ece-bfcf-4e67-a99c-ab2eb602a6b9', url: 'https://github.com/ganeshkorra9200/ganesh-app.git'
+pipeline{
+    agent any
+    tools{
+        maven 'maven-3.9'
     }
-    
-    stage('Maven Build'){
-        def mavenHome = tool name: "Maven-3.9.9", type: "maven"
-        def mavenCMD = "${mavenHome}/bin/mvn"
-        sh "${mavenCMD} clean package"
-    }
-    
-    stage('sonarqube analysis'){
-        withSonarQubeEnv('Sonar-Server-7.8'){
-            def mavenHome = tool name: "Maven-3.9.9", type: "maven"
-            def mavenCMD = "${mavenHome}/bin/mvn"
-            sh "${mavenCMD} sonar:sonar"
+    stages{
+        stage('checkout the code'){
+            steps{
+                git url:'https://github.com/bcreddydevops/chinna-app.git', branch: 'main'
+            }
         }
-    }
-    
-    stage('Upload Build Artifact'){
-        nexusArtifactUploader artifacts: [[artifactId: 'hiring', classifier: '', file: 'target/hiring.war', type: 'war']], credentialsId: 'Nexus-Credebtails', groupId: 'in.javahome', nexusUrl: '54.174.6.108:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'telcovas-snapshot', version: '0.1-SNAPSHOT'
-    }
-    
-    stage('Deploy'){
-       sshagent(['tomcat-server']) {
-        sh 'scp -o StrictHostKeyChecking=no target/hiring.war ec2-user@52.207.243.94://opt/apache-tomcat-9.0.97/webapps'
-       }
-    }
-}
+        stage('build the code'){
+            steps{
+                sh 'mvn clean package'
+            }
+        }
+        stage('Generate sonarqube-analysis'){
+            steps{
+                withSonarQubeEnv(installationName: 'sonarqube-8', credentialsId: 'jenkins-sonar-token') {
+                 sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        stage('Upload War file to Nexus'){
+            steps{
+             nexusArtifactUploader artifacts: [
+                 [
+                     artifactId: 'devops', 
+                     classifier: '', 
+                     file: 'target/hiring.war', 
+                     type: 'war'
+                ]
+            ], 
+            credentialsId: 'nexus-credentials', 
+            groupId: 'in.javahome', 
+            nexusUrl: '52.90.34.45:8081', 
+            nexusVersion: 'nexus3', 
+            protocol: 'http', 
+            repository: 'spring-initial', 
+            version: '0.0.1'
+            }
+        }
+		stage('Deploy War file to Tommcat'){
+            steps{
+               sshagent(['tomcat-credentials']) {
+                  sh """
+                    scp -o StrictHostKeyChecking=no target/*.war ubuntu@54.173.252.57:/opt/apache-tomcat-9.0.72/webapps
+                    ssh -o StrictHostKeyChecking=no ubuntu@54.173.252.57 /opt/apache-tomcat-9.0.72/bin/shutdown.sh
+                    ssh -o StrictHostKeyChecking=no ubuntu@54.173.252.57 /opt/apache-tomcat-9.0.72/bin/startup.sh
+					
+		          """          
+               }
+            }
+        }
+    }   
+ }
